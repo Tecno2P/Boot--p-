@@ -1,0 +1,23 @@
+idf_component_register(
+    SRCS
+        "main.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        boot_manager
+        ota_manager
+        wifi_manager
+        web_server
+        nvs_flash
+        esp_wifi
+        esp_event
+        esp_system
+        driver
+        spiffs
+        esp_partition
+        app_update
+        esp_timer
+        esp_task_wdt
+        log
+        freertos
+)

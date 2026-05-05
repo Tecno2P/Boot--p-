@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ESP32 Boot Manager</title>
+  <link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+  <div class="scanlines"></div>
+  <div class="container">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">
+          <span class="logo-icon">⚡</span>
+          <div>
+            <div class="logo-title">Boot Manager</div>
+            <div class="logo-sub">ESP32 · Dual OTA System</div>
+          </div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="status-dot" id="sta-dot" title="STA Status"></div>
+        <div class="uptime" id="uptime-display">--:--:--</div>
+      </div>
+    </header>
+
+    <!-- Nav Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="ota">OTA Update</button>
+      <button class="tab" data-tab="wifi">WiFi Config</button>
+      <button class="tab" data-tab="partitions">Partitions</button>
+    </nav>
+
+    <!-- ── Dashboard ── -->
+    <section id="tab-dashboard" class="tab-content active">
+      <div class="grid-2">
+
+        <div class="card">
+          <div class="card-title">
+            <span class="icon">📦</span> Firmware
+          </div>
+          <div class="info-row">
+            <span class="label">Version</span>
+            <span class="value mono" id="fw-version">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Project</span>
+            <span class="value mono" id="fw-project">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">IDF</span>
+            <span class="value mono" id="fw-idf">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Built</span>
+            <span class="value mono" id="fw-built">--</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span class="icon">🗂️</span> Partitions
+          </div>
+          <div class="info-row">
+            <span class="label">Running</span>
+            <span class="value mono badge badge-green" id="dash-running">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Standby</span>
+            <span class="value mono badge" id="dash-next">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Standby Valid</span>
+            <span class="value mono" id="dash-next-valid">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Boot Failures</span>
+            <span class="value mono" id="dash-fails">--</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span class="icon">📶</span> Network
+          </div>
+          <div class="info-row">
+            <span class="label">STA State</span>
+            <span class="value mono" id="net-sta">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">STA IP</span>
+            <span class="value mono" id="net-sta-ip">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">AP IP</span>
+            <span class="value mono" id="net-ap-ip">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">AP Clients</span>
+            <span class="value mono" id="net-ap-clients">--</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span class="icon">🧠</span> System
+          </div>
+          <div class="info-row">
+            <span class="label">Free Heap</span>
+            <span class="value mono" id="sys-heap">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Min Heap</span>
+            <span class="value mono" id="sys-min-heap">--</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Uptime</span>
+            <span class="value mono" id="sys-uptime">--</span>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-danger" id="btn-reboot">↺ Reboot</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── OTA Update ── -->
+    <section id="tab-ota" class="tab-content">
+
+      <div class="card">
+        <div class="card-title"><span class="icon">🌐</span> OTA via URL</div>
+        <p class="hint">Fetch firmware binary from HTTP/HTTPS URL (e.g. GitHub Releases).</p>
+        <div class="field-row">
+          <input type="url" id="ota-url" class="input"
+                 placeholder="https://github.com/user/repo/releases/latest/download/app.bin"/>
+          <button class="btn btn-primary" id="btn-ota-url">Flash</button>
+        </div>
+        <div class="progress-wrap hidden" id="url-progress-wrap">
+          <div class="progress-bar">
+            <div class="progress-fill" id="url-progress-fill"></div>
+          </div>
+          <div class="progress-label" id="url-progress-label">Starting...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">⬆️</span> OTA via File Upload</div>
+        <p class="hint">Upload a <code>.bin</code> firmware file directly from your browser.</p>
+
+        <div class="drop-zone" id="drop-zone">
+          <div class="drop-icon">📁</div>
+          <div class="drop-text">Drop firmware .bin here or <label for="file-input" class="link">browse</label></div>
+          <input type="file" id="file-input" accept=".bin" style="display:none"/>
+          <div class="drop-filename" id="drop-filename"></div>
+        </div>
+
+        <div class="progress-wrap hidden" id="upload-progress-wrap">
+          <div class="progress-bar">
+            <div class="progress-fill" id="upload-progress-fill"></div>
+          </div>
+          <div class="progress-label" id="upload-progress-label">0%</div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-upload" disabled>Upload &amp; Flash</button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── WiFi Config ── -->
+    <section id="tab-wifi" class="tab-content">
+      <div class="card">
+        <div class="card-title"><span class="icon">📡</span> AP Mode (always on)</div>
+        <div class="info-row">
+          <span class="label">SSID</span>
+          <span class="value mono">ESP32-BootManager</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Password</span>
+          <span class="value mono">12345678</span>
+        </div>
+        <div class="info-row">
+          <span class="label">IP</span>
+          <span class="value mono" id="wifi-ap-ip">192.168.4.1</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">🔗</span> STA Mode (connect to router)</div>
+        <div class="info-row">
+          <span class="label">Status</span>
+          <span class="value mono" id="wifi-sta-status">--</span>
+        </div>
+        <div class="info-row">
+          <span class="label">IP</span>
+          <span class="value mono" id="wifi-sta-ip">--</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Saved SSID</span>
+          <span class="value mono" id="wifi-saved-ssid">--</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">✏️</span> Update WiFi Credentials</div>
+        <div class="form-group">
+          <label class="form-label">Network SSID</label>
+          <input type="text" id="wifi-ssid" class="input" placeholder="Your WiFi SSID" maxlength="31"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="password-wrap">
+            <input type="password" id="wifi-pass" class="input" placeholder="Password" maxlength="63"/>
+            <button class="btn-icon" id="btn-show-pass" title="Show/hide password">👁</button>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-wifi-save">Save &amp; Connect</button>
+        </div>
+        <div id="wifi-msg" class="msg hidden"></div>
+      </div>
+    </section>
+
+    <!-- ── Partitions ── -->
+    <section id="tab-partitions" class="tab-content">
+      <div class="card">
+        <div class="card-title"><span class="icon">💾</span> OTA Partition Status</div>
+
+        <div class="partition-visual" id="partition-visual">
+          <div class="part-slot" id="part-ota0">
+            <div class="part-label">ota_0</div>
+            <div class="part-state" id="part-ota0-state">--</div>
+          </div>
+          <div class="part-arrow">⇄</div>
+          <div class="part-slot" id="part-ota1">
+            <div class="part-label">ota_1</div>
+            <div class="part-state" id="part-ota1-state">--</div>
+          </div>
+        </div>
+
+        <div class="info-row" style="margin-top:16px">
+          <span class="label">Currently Running</span>
+          <span class="value mono badge badge-green" id="part-running">--</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Standby Partition</span>
+          <span class="value mono badge" id="part-next">--</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Standby Valid</span>
+          <span class="value mono" id="part-next-valid">--</span>
+        </div>
+
+        <div class="warning-box" id="switch-warning" style="display:none">
+          ⚠️ Standby partition has no valid firmware. Flash firmware first.
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-warning" id="btn-switch-partition">⇄ Switch &amp; Reboot</button>
+        </div>
+        <div id="partition-msg" class="msg hidden"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">📋</span> Partition Table</div>
+        <table class="table">
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Offset</th><th>Size</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>nvs</td><td>data/nvs</td><td>0x9000</td><td>16 KB</td></tr>
+            <tr><td>otadata</td><td>data/ota</td><td>0xD000</td><td>8 KB</td></tr>
+            <tr><td>phy_init</td><td>data/phy</td><td>0xF000</td><td>4 KB</td></tr>
+            <tr><td>ota_0</td><td>app/ota_0</td><td>0x10000</td><td>1664 KB</td></tr>
+            <tr><td>ota_1</td><td>app/ota_1</td><td>0x1B0000</td><td>1664 KB</td></tr>
+            <tr><td>spiffs</td><td>data/spiffs</td><td>0x350000</td><td>704 KB</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+  </div><!-- /container -->
+
+  <script src="/app.js"></script>
+</body>
+</html>
