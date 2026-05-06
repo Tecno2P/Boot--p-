@@ -133,10 +133,10 @@ esp_err_t ota_manager_begin_upload(size_t total_size)
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "OTA upload target: %s (offset 0x%08lx, size %lu)",
+    ESP_LOGI(TAG, "OTA upload target: %s (offset 0x%08x, size %u)",
              s_ota_part->label,
-             (unsigned long)s_ota_part->address,
-             (unsigned long)s_ota_part->size);
+             (unsigned)s_ota_part->address,
+             (unsigned)s_ota_part->size);
 
     if (running->address == s_ota_part->address) {
         ESP_LOGE(TAG, "Target partition is currently running — cannot overwrite");

@@ -119,8 +119,8 @@ void app_main(void)
         /* Keep alive — watchdog fed by web server task */
         while (1) {
             vTaskDelay(pdMS_TO_TICKS(10000));
-            ESP_LOGI(TAG, "Boot Manager alive. Free heap: %lu bytes",
-                     (unsigned long)esp_get_free_heap_size());
+            ESP_LOGI(TAG, "Boot Manager alive. Free heap: %u bytes",
+                     (unsigned)esp_get_free_heap_size());
         }
 
     } else {
@@ -144,17 +144,17 @@ void app_main(void)
 
         const esp_partition_t *running = esp_ota_get_running_partition();
         if (running) {
-            ESP_LOGI(TAG, "Running from partition: %s (offset 0x%08lx)",
-                     running->label, (unsigned long)running->address);
+            ESP_LOGI(TAG, "Running from partition: %s (offset 0x%08x)",
+                     running->label, (unsigned)running->address);
         }
 
         uint32_t blink_count = 0;
         while (1) {
             vTaskDelay(pdMS_TO_TICKS(5000));
             blink_count++;
-            ESP_LOGI(TAG, "Heartbeat #%lu | Heap: %lu free",
-                     (unsigned long)blink_count,
-                     (unsigned long)esp_get_free_heap_size());
+            ESP_LOGI(TAG, "Heartbeat #%u | Heap: %u free",
+                     (unsigned)blink_count,
+                     (unsigned)esp_get_free_heap_size());
         }
     }
 }
