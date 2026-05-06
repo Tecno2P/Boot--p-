@@ -11,7 +11,6 @@ idf_component_register(
         app_update
         nvs_flash
         log
-        freertos
         esp_system
         esp_timer
         json

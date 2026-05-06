@@ -17,7 +17,5 @@ idf_component_register(
         esp_partition
         app_update
         esp_timer
-        esp_task_wdt
         log
-        freertos
 )
