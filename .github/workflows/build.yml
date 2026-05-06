@@ -14,7 +14,7 @@ env:
   TARGET: "esp32"
 
 jobs:
-  # ────────────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────────────────────────────────────
   build:
     name: Build Firmware
     runs-on: ubuntu-latest
@@ -25,64 +25,47 @@ jobs:
         with:
           submodules: recursive
 
-      # Use official Espressif ESP-IDF Docker action
       - name: Build with ESP-IDF
         uses: espressif/esp-idf-ci-action@v1
         with:
           esp_idf_version: ${{ env.IDF_VERSION }}
           target: ${{ env.TARGET }}
           path: "."
-          command: >
-            idf.py build
-            && echo "BUILD_SUCCESS=true" >> $GITHUB_ENV
+          command: idf.py build
 
-      # Collect build artifacts
       - name: Collect firmware binaries
-        if: success()
         run: |
           mkdir -p firmware_artifacts
-          cp build/bootloader/bootloader.bin      firmware_artifacts/bootloader.bin
-          cp build/partition_table/partition-table.bin firmware_artifacts/partition-table.bin
-          cp build/esp32_boot_manager.bin          firmware_artifacts/app.bin
-          cp build/spiffs.bin                      firmware_artifacts/spiffs.bin  2>/dev/null || true
 
-          # Create merged binary for single-command flashing
-          # (requires esptool.py which is available inside ESP-IDF Docker)
-          echo "Firmware artifacts collected:"
+          cp build/bootloader/bootloader.bin          firmware_artifacts/bootloader.bin
+          cp build/partition_table/partition-table.bin firmware_artifacts/partition-table.bin
+          cp build/esp32_boot_manager.bin              firmware_artifacts/app.bin
+
+          if [ -f build/spiffs.bin ]; then
+            cp build/spiffs.bin firmware_artifacts/spiffs.bin
+          fi
+
+          echo "=== Firmware artifacts ==="
           ls -lh firmware_artifacts/
 
-          # Write flash info file
           cat > firmware_artifacts/FLASH_INFO.txt << 'EOF'
-          ESP32 Boot Manager — Flash Instructions
+          ESP32 Boot Manager - Flash Instructions
           ========================================
 
-          Method 1: Flash all at once (recommended)
-          ------------------------------------------
-          esptool.py -p PORT -b 460800 \
-            --before default_reset \
-            --after hard_reset \
-            --chip esp32 \
-            write_flash \
-            --flash_mode dio \
-            --flash_freq 40m \
-            --flash_size 4MB \
-            0x1000  bootloader.bin \
-            0x8000  partition-table.bin \
-            0x10000 app.bin \
+          Full flash (first time):
+          esptool.py -p PORT -b 460800 --chip esp32 \
+            --before default_reset --after hard_reset \
+            write_flash --flash_mode dio --flash_freq 40m --flash_size 4MB \
+            0x1000   bootloader.bin \
+            0x8000   partition-table.bin \
+            0x10000  app.bin \
             0x350000 spiffs.bin
 
-          Method 2: idf.py (from project directory)
-          ------------------------------------------
-          idf.py -p PORT flash monitor
+          Using idf.py:
+            idf.py -p PORT flash monitor
 
-          Method 3: Flash only app
-          -------------------------
-          esptool.py -p PORT -b 460800 write_flash 0x10000 app.bin
-
-          Notes:
-          - Replace PORT with your serial port (e.g., /dev/ttyUSB0 or COM3)
-          - Hold BOOT button during flash if needed
-          - After first flash, OTA updates can be done via web interface
+          OTA update via Boot Manager web UI:
+            http://192.168.4.1  (connect to AP: ESP32-BootManager / 12345678)
           EOF
 
       - name: Upload firmware artifacts
@@ -93,7 +76,7 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  # ────────────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────────────────────────────────────
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
@@ -110,70 +93,56 @@ jobs:
           name: firmware-${{ github.sha }}
           path: firmware_artifacts/
 
-      - name: Get version from git tag or commit
-        id: get_version
+      - name: Get version info
+        id: version
         run: |
-          # Use git tag if present, else use short SHA
-          VERSION=$(git tag --points-at HEAD | head -1)
-          if [ -z "$VERSION" ]; then
-            VERSION="dev-$(git rev-parse --short HEAD)"
-          fi
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
-          echo "TIMESTAMP=$(date +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
-          echo "SHA_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          TIMESTAMP=$(date +'%Y-%m-%d %H:%M UTC')
+          TAG="build-${SHA_SHORT}"
+          echo "SHA_SHORT=${SHA_SHORT}"   >> $GITHUB_OUTPUT
+          echo "TIMESTAMP=${TIMESTAMP}"   >> $GITHUB_OUTPUT
+          echo "TAG=${TAG}"               >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "build-${{ steps.get_version.outputs.SHA_SHORT }}"
-          name: "ESP32 Boot Manager ${{ steps.get_version.outputs.VERSION }} (${{ steps.get_version.outputs.TIMESTAMP }})"
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: "ESP32 Boot Manager (${{ steps.version.outputs.TIMESTAMP }})"
           body: |
-            ## 🚀 Automated Firmware Release
+            ## Automated Firmware Release
 
             **Commit:** `${{ github.sha }}`
             **Branch:** `${{ github.ref_name }}`
-            **Built:** ${{ steps.get_version.outputs.TIMESTAMP }}
+            **Built:** ${{ steps.version.outputs.TIMESTAMP }}
 
-            ### Flash Instructions
-
-            **Full flash (first time):**
+            ### Flash (first time)
             ```bash
-            esptool.py -p PORT -b 460800 \
-              --chip esp32 write_flash \
+            esptool.py -p PORT -b 460800 --chip esp32 \
+              write_flash --flash_mode dio --flash_freq 40m --flash_size 4MB \
               0x1000   bootloader.bin \
               0x8000   partition-table.bin \
               0x10000  app.bin \
               0x350000 spiffs.bin
             ```
 
-            **OTA update from this release:**
-            Use the Boot Manager web UI → OTA Update → URL:
+            ### OTA update from this release
+            Use Boot Manager web UI → OTA → URL:
             ```
             https://github.com/${{ github.repository }}/releases/latest/download/app.bin
             ```
 
-            ### Files
-            | File | Description |
-            |------|-------------|
-            | `bootloader.bin` | ESP32 bootloader |
-            | `partition-table.bin` | Partition table |
-            | `app.bin` | Main application firmware |
-            | `spiffs.bin` | Web UI filesystem image |
-            | `FLASH_INFO.txt` | Detailed flash instructions |
-
             ### Boot Manager Access
             1. Hold BOOT button while powering on
-            2. Connect to WiFi: **ESP32-BootManager** / **12345678**
-            3. Open browser: **http://192.168.4.1**
+            2. Connect WiFi: **ESP32-BootManager** / **12345678**
+            3. Open: **http://192.168.4.1**
           draft: false
-          prerelease: ${{ github.ref_name == 'testing' }}
+          prerelease: false
           files: |
             firmware_artifacts/bootloader.bin
             firmware_artifacts/partition-table.bin
             firmware_artifacts/app.bin
             firmware_artifacts/spiffs.bin
             firmware_artifacts/FLASH_INFO.txt
-          generate_release_notes: false
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
