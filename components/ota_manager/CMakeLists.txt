@@ -8,7 +8,6 @@ idf_component_register(
         esp_partition
         nvs_flash
         log
-        esp_tls
         bootloader_support
         mbedtls
 )

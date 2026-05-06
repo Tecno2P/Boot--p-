@@ -7,7 +7,6 @@
 #include "esp_partition.h"
 #include "esp_https_ota.h"
 #include "esp_http_client.h"
-#include "esp_tls.h"
 #include "esp_crt_bundle.h"
 
 static const char *TAG = "OTA_MGR";
