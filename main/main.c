@@ -65,13 +65,22 @@ void app_main(void)
     /* Initialize event loop */
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    /* Initialize task watchdog */
+    /* Initialize (or reconfigure) task watchdog.
+     * In ESP-IDF v5.x the TWDT may already be initialized by the system
+     * before app_main() runs, so fall back to reconfigure in that case. */
     esp_task_wdt_config_t twdt_config = {
         .timeout_ms     = 30000,
         .idle_core_mask = 0,
         .trigger_panic  = true,
     };
-    ESP_ERROR_CHECK(esp_task_wdt_init(&twdt_config));
+    ret = esp_task_wdt_init(&twdt_config);
+    if (ret == ESP_ERR_INVALID_STATE) {
+        /* Already initialized — reconfigure with our settings instead */
+        ESP_LOGW(TAG, "TWDT already initialized, reconfiguring...");
+        ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&twdt_config));
+    } else {
+        ESP_ERROR_CHECK(ret);
+    }
 
     /* Initialize boot manager (handles boot loop detection + OTA marking) */
     ret = boot_manager_init();
